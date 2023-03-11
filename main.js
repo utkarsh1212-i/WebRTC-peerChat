@@ -7,11 +7,11 @@ let client;
 let channel;
 
 let queryString = window.location.search;
-let urlParams = new URLSearchParams(queryString)
-let roomId = urlParams.get('room')
+let urlParams = new URLSearchParams(queryString);
+let roomId = urlParams.get("room");
 
-if(!roomId){
-    window.location = 'lobby.html'
+if (!roomId) {
+  window.location = "lobby.html";
 }
 
 let localStream;
@@ -26,13 +26,21 @@ const servers = {
   ],
 };
 
+let constraints = {
+  video: {
+    width: { min: 640, ideal: 1920, max: 1920 },
+    height: { min: 480, ideal: 1080, max: 1080 },
+  },
+  audio: true
+};
+
 let init = async () => {
   client = await AgoraRTM.createInstance(APP_ID);
   await client.login({ uid, token });
 
   //index.html?room=22838
-  channel = client.createChannel(roomId)
-//   channel = client.createChannel("main");
+  channel = client.createChannel(roomId);
+  //   channel = client.createChannel("main");
   await channel.join();
 
   channel.on("MemberJoined", handleUserJoined);
@@ -40,10 +48,7 @@ let init = async () => {
 
   client.on("MessageFromPeer", handleMessageFromPeer);
 
-  localStream = await navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: false,
-  });
+  localStream = await navigator.mediaDevices.getUserMedia(constraints);
   document.getElementById("user-1").srcObject = localStream;
 };
 
@@ -52,9 +57,9 @@ let handleUserJoined = async (MemberId) => {
   createOffer(MemberId);
 };
 let handleUserLeft = async (MemberId) => {
-    document.getElementById('user-2').style.display = 'none'
-
-}
+  document.getElementById("user-2").style.display = "none";
+  document.getElementById("user-1").classList.remove("smallFrame");
+};
 let handleMessageFromPeer = async (message, MemberId) => {
   message = JSON.parse(message.text);
   if (message.type === "offer") {
@@ -77,10 +82,14 @@ let createPeerConnection = async (MemberId) => {
   remoteStream = new MediaStream();
   document.getElementById("user-2").srcObject = remoteStream;
   document.getElementById("user-2").style.display = "block";
+
+  //Adding smallFrame t=of our videofeed to screen
+  document.getElementById("user-1").classList.add("smallFrame");
+
   if (!localStream) {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: true,
-      audio: false,
+      audio: true,
     });
     document.getElementById("user-1").srcObject = localStream;
   }
@@ -144,11 +153,48 @@ let addAnswer = async (answer) => {
 };
 
 //function called when peer leave the channel
-let leaveChannel = async() => {
-    await channel.leave()
-    await client.logout()
-}
+let leaveChannel = async () => {
+  await channel.leave();
+  await client.logout();
+};
 
-window.addEventListener('beforeunload', leaveChannel); //triggers everytime user closes browser window
+//Toggle Camera Button
+let toggleCamera = async () => {
+  let videoTrack = localStream
+    .getTracks()
+    .find((track) => track.kind === "video");
+
+  if (videoTrack.enabled) {
+    videoTrack.enabled = false;
+    document.getElementById("camera-btn").style.backgroundColor =
+      "rgb(255,80,80)";
+  } else {
+    videoTrack.enabled = true;
+    document.getElementById("camera-btn").style.backgroundColor =
+      "rgb(179,102,249, .9)";
+  }
+};
+
+//Toggle MIC Button
+let toggleMic = async () => {
+  let audioTrack = localStream
+    .getTracks()
+    .find((track) => track.kind === "audio");
+
+  if (audioTrack.enabled) {
+    audioTrack.enabled = false;
+    document.getElementById("mic-btn").style.backgroundColor = "rgb(255,80,80)";
+  } else {
+    audioTrack.enabled = true;
+    document.getElementById("mic-btn").style.backgroundColor =
+      "rgb(179,102,249, .9)";
+  }
+};
+
+window.addEventListener("beforeunload", leaveChannel); //triggers everytime user closes browser window
+
+document.getElementById("camera-btn").addEventListener("click", toggleCamera);
+
+document.getElementById("mic-btn").addEventListener("click", toggleMic);
 
 init();
